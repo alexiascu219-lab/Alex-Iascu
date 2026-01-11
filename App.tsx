@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MapPin, MessageSquare, Camera, X, Loader2, Trash2, ArrowLeft } from 'lucide-react';
+import { Plus, Search, MapPin, MessageSquare, Camera, X, Loader2, Trash2, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { InventoryItem, ChatMessage } from './types';
 import { analyzeItemImage, chatWithInventory } from './geminiService';
 
@@ -12,8 +12,12 @@ const Logo: React.FC<{ className?: string }> = ({ className = "w-8 h-8" }) => (
 
 const App: React.FC = () => {
   const [items, setItems] = useState<InventoryItem[]>(() => {
-    const saved = localStorage.getItem('won-it-inventory');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('won-it-inventory');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -22,14 +26,13 @@ const App: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
 
-  const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
-    name: '',
-    location: '',
-    category: '',
-    description: '',
-    imageUrl: ''
-  });
+  useEffect(() => {
+    if (!process.env.API_KEY || process.env.API_KEY === 'undefined') {
+      setApiKeyMissing(true);
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('won-it-inventory', JSON.stringify(items));
@@ -55,12 +58,21 @@ const App: React.FC = () => {
         }));
       } catch (error) {
         console.error("Analysis failed", error);
+        alert("AI Analysis failed. You can still enter details manually.");
       } finally {
         setIsAnalyzing(false);
       }
     };
     reader.readAsDataURL(file);
   };
+
+  const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
+    name: '',
+    location: '',
+    category: '',
+    description: '',
+    imageUrl: ''
+  });
 
   const handleSaveItem = () => {
     if (!newItem.name || !newItem.location) return;
@@ -109,6 +121,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col safe-top">
+      {apiKeyMissing && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3 text-amber-800 text-xs font-medium">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+          <p>AI features disabled: API Key not found in Environment Variables.</p>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3 sm:px-8 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
