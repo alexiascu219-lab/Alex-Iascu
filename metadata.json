@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Won-It Organizer",
+  "description": "A sophisticated inventory manager for collectors and winners. Track items with AI-powered image analysis, location tagging, and a smart chatbot that remembers where everything is.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
