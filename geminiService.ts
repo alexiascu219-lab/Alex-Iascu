@@ -2,19 +2,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { InventoryItem, AnalysisResult } from "./types";
 
-// Helper to get API Key safely
+// Helper to get API Key safely without crashing if process is undefined
 const getApiKey = () => {
-  const key = process.env.API_KEY;
-  if (!key || key === 'undefined') {
-    console.error("Gemini API Key is missing. Please set API_KEY in your deployment environment variables.");
+  try {
+    // Check various common places where the key might be injected
+    const key = (typeof process !== 'undefined' && process.env?.API_KEY) || 
+                (window as any)._env_?.API_KEY || 
+                null;
+    
+    if (!key || key === 'undefined') {
+      console.warn("Gemini API Key is missing. AI features will be limited.");
+      return null;
+    }
+    return key;
+  } catch (e) {
     return null;
   }
-  return key;
 };
 
 export const analyzeItemImage = async (base64Image: string): Promise<AnalysisResult> => {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API Key not configured");
+  if (!apiKey) throw new Error("API Key not configured. Please set API_KEY in environment variables.");
 
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
@@ -47,7 +55,8 @@ export const analyzeItemImage = async (base64Image: string): Promise<AnalysisRes
   });
 
   try {
-    return JSON.parse(response.text || '{}');
+    const text = response.text;
+    return JSON.parse(text || '{}');
   } catch (e) {
     console.error("Failed to parse AI response", e);
     return { name: "New Item", category: "General", description: "" };
@@ -60,7 +69,7 @@ export const chatWithInventory = async (
   history: { role: 'user' | 'model', text: string }[]
 ) => {
   const apiKey = getApiKey();
-  if (!apiKey) return "API Key is missing. Please check your deployment settings.";
+  if (!apiKey) return "The AI Assistant is currently offline because the API Key is missing in the server settings.";
 
   const ai = new GoogleGenAI({ apiKey });
   const inventoryContext = inventory.map(item => 
@@ -84,5 +93,5 @@ export const chatWithInventory = async (
     config: { systemInstruction },
   });
 
-  return response.text;
+  return response.text || "I processed your request but couldn't generate a text response.";
 };

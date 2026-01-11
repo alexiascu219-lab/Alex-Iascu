@@ -29,7 +29,15 @@ const App: React.FC = () => {
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
 
   useEffect(() => {
-    if (!process.env.API_KEY || process.env.API_KEY === 'undefined') {
+    // Defensively check for API key without crashing
+    let hasKey = false;
+    try {
+      if (typeof process !== 'undefined' && process.env?.API_KEY && process.env.API_KEY !== 'undefined') {
+        hasKey = true;
+      }
+    } catch (e) {}
+    
+    if (!hasKey) {
       setApiKeyMissing(true);
     }
   }, []);
@@ -58,7 +66,7 @@ const App: React.FC = () => {
         }));
       } catch (error) {
         console.error("Analysis failed", error);
-        alert("AI Analysis failed. You can still enter details manually.");
+        alert("AI Analysis failed. Please check your internet and API key.");
       } finally {
         setIsAnalyzing(false);
       }
@@ -105,9 +113,9 @@ const App: React.FC = () => {
 
     try {
       const reply = await chatWithInventory(chatInput, items, chatHistory);
-      setChatHistory(prev => [...prev, { role: 'model', text: reply || "I'm not sure about that." }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: reply || "I couldn't generate a response." }]);
     } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'model', text: "Sorry, I had trouble connecting to the brain." }]);
+      setChatHistory(prev => [...prev, { role: 'model', text: "Connection error. Please check your settings." }]);
     } finally {
       setIsChatLoading(false);
     }
@@ -122,9 +130,9 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col safe-top">
       {apiKeyMissing && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3 text-amber-800 text-xs font-medium">
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3 text-amber-800 text-[10px] font-bold uppercase tracking-tight">
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-          <p>AI features disabled: API Key not found in Environment Variables.</p>
+          <p>AI disabled: Missing API_KEY in environment variables.</p>
         </div>
       )}
 
@@ -160,7 +168,7 @@ const App: React.FC = () => {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors w-5 h-5" />
           <input 
             type="text" 
-            placeholder="Find items..." 
+            placeholder="Search your stash..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-slate-700"
@@ -175,8 +183,8 @@ const App: React.FC = () => {
             <div className="bg-slate-100 p-6 rounded-full mb-4">
               <Logo className="w-16 h-16 opacity-30 grayscale" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-700">No items found</h3>
-            <p className="text-slate-500 mt-1 text-sm">Start storing your wins!</p>
+            <h3 className="text-lg font-semibold text-slate-700">Nothing found</h3>
+            <p className="text-slate-500 mt-1 text-sm">Add your first item to get started!</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -209,6 +217,9 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {/* Modals and Chat are defined further down */}
+      {/* ... keeping the rest of the existing UI logic for brevity as it was already correct ... */}
+      
       {/* Add Modal */}
       {isAdding && (
         <div className="fixed inset-0 z-50 flex flex-col bg-white animate-in slide-in-from-bottom duration-300">
@@ -228,7 +239,7 @@ const App: React.FC = () => {
               {!newItem.imageUrl ? (
                 <label className="flex flex-col items-center justify-center w-full aspect-video border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer bg-slate-50 hover:bg-indigo-50/30 transition-colors">
                   <Camera className="w-10 h-10 text-slate-400 mb-2" />
-                  <p className="text-sm text-slate-500 font-medium">Take photo or upload</p>
+                  <p className="text-sm text-slate-500 font-medium">Capture item image</p>
                   <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
                 </label>
               ) : (
@@ -243,7 +254,7 @@ const App: React.FC = () => {
                   {isAnalyzing && (
                     <div className="absolute inset-0 bg-indigo-900/40 flex flex-col items-center justify-center text-white backdrop-blur-[2px]">
                       <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                      <span className="text-sm font-bold">Identifying...</span>
+                      <span className="text-sm font-bold">AI Analyzing...</span>
                     </div>
                   )}
                 </div>
@@ -266,7 +277,7 @@ const App: React.FC = () => {
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Location</label>
                   <input 
                     type="text" 
-                    placeholder="e.g. Shed" 
+                    placeholder="e.g. Attic Box 1" 
                     value={newItem.location}
                     onChange={e => setNewItem(prev => ({ ...prev, location: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm"
@@ -276,7 +287,7 @@ const App: React.FC = () => {
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Category</label>
                   <input 
                     type="text" 
-                    placeholder="e.g. Tools" 
+                    placeholder="e.g. Electronics" 
                     value={newItem.category}
                     onChange={e => setNewItem(prev => ({ ...prev, category: e.target.value }))}
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm"
@@ -287,7 +298,7 @@ const App: React.FC = () => {
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Description</label>
                 <textarea 
                   rows={3}
-                  placeholder="Notes..." 
+                  placeholder="Any extra details?" 
                   value={newItem.description}
                   onChange={e => setNewItem(prev => ({ ...prev, description: e.target.value }))}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm resize-none"
@@ -302,7 +313,7 @@ const App: React.FC = () => {
               disabled={!newItem.name || !newItem.location}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-100 transition-all active:scale-95"
             >
-              Confirm Storage
+              Add to Inventory
             </button>
           </div>
         </div>
@@ -331,8 +342,8 @@ const App: React.FC = () => {
                    <Logo className="w-10 h-10" />
                 </div>
                 <div>
-                  <p className="text-slate-600 font-bold">How can I help?</p>
-                  <p className="text-slate-400 text-xs mt-1">"Where is my red toolkit?"</p>
+                  <p className="text-slate-600 font-bold">Ask me anything</p>
+                  <p className="text-slate-400 text-xs mt-1">"Where did I put the drill?"</p>
                 </div>
               </div>
             )}
@@ -362,7 +373,7 @@ const App: React.FC = () => {
             <div className="relative flex items-center">
               <input 
                 type="text" 
-                placeholder="Message assistant..." 
+                placeholder="Ask your assistant..." 
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
